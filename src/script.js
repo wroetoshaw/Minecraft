@@ -49,7 +49,7 @@ const materialArray = [
     map: textureLoader.load("/textures/side1.png"),
   }),
   new THREE.MeshBasicMaterial({
-    map: textureLoader.load("/textures/top.png"),
+    map: textureLoader.load("/textures/color.jpg"),
   }),
   new THREE.MeshBasicMaterial({
     map: textureLoader.load("/textures/bottom.png"),
@@ -159,7 +159,7 @@ const camera = new THREE.PerspectiveCamera(
   75,
   sizes.width / sizes.height,
   0.1,
-  1000
+  400
 );
 camera.position.x = ((renderDistance * chunkSize) / 2) * 5;
 camera.position.z = ((renderDistance * chunkSize) / 2) * 5;
@@ -251,6 +251,46 @@ function Block(x, y, z) {
   //   scene.add(this.line);
   // };
 }
+/************************************
+ Clouds
+ ***********************************/
+
+let cloudsGeometry = new THREE.Geometry();
+let cloudSize = {
+  width: 20,
+  height: 5,
+  depth: 20,
+};
+var yzoff = 0;
+for (let x = 0; x < 100; x++) {
+  var xyoff = 0;
+  for (let z = 0; z < 100; z++) {
+    let value = simplex.noise2D(xyoff * 3, yzoff * 3);
+    xyoff = xyoff + inc;
+    if (Math.abs(value) > 0.2) continue;
+    let geometry = new THREE.BoxGeometry(
+      cloudSize.width,
+      cloudSize.height,
+      cloudSize.depth
+    );
+    let cube = new THREE.Mesh(geometry);
+    cube.position.z = z * cloudSize.depth;
+    cube.position.x = x * cloudSize.width;
+    cube.position.y = 30 * cloudSize.height;
+    cube.updateMatrix();
+    cloudsGeometry.merge(cube.geometry, cube.matrix);
+  }
+  yzoff = yzoff + inc;
+}
+
+scene.add(
+  new THREE.Mesh(
+    cloudsGeometry,
+    new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+    })
+  )
+);
 
 /***********************************
 var blocks = [];
@@ -365,9 +405,8 @@ controls.addEventListener("unlock", function () {});
 /************************************
  Keys
  ***********************************/
-
 var keys = [];
-var canJump = true;
+var canJump = false;
 var controlOptions = {
   forward: "w",
   backward: "s",
@@ -409,7 +448,7 @@ document.addEventListener("keydown", function (e) {
   keys.push(e.key);
   if (e.key == " ") {
     ySpeed = -0.9;
-    // canJump = false;
+    canJump = false;
   }
   if (e.key == controlOptions.placeBlock) {
     const raycaster = new THREE.Raycaster();
@@ -483,6 +522,7 @@ document.addEventListener("keydown", function (e) {
     }
   }
 });
+
 document.addEventListener("keyup", function (e) {
   var newArray = [];
   for (var i = 0; i < keys.length; i++) {
@@ -496,6 +536,7 @@ document.addEventListener("keyup", function (e) {
 /************************************
  Update function (gravity, collisions, Infinite world generation)
  ***********************************/
+
 var movingSpeed = 0.7;
 var ySpeed = 0;
 var acc = 0.065;
@@ -586,7 +627,7 @@ const update = () => {
         ) {
           camera.position.y = chunks[i][j].y + 10;
           ySpeed = 0;
-          canJump = true;
+          canJump = false;
           break;
         }
       }
@@ -1031,7 +1072,6 @@ const GameLoop = () => {
   requestAnimationFrame(GameLoop);
   update();
   render();
-  // console.log(chunks[identifyChunk(x, z)]);
 };
 
 GameLoop();
