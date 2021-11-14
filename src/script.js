@@ -368,13 +368,119 @@ controls.addEventListener("unlock", function () {});
 
 var keys = [];
 var canJump = true;
+var controlOptions = {
+  forward: "w",
+  backward: "s",
+  right: "d",
+  left: "a",
+  placeBlock: "q",
+  space: " ",
+};
+var placedBlock = [];
+var chunkMap = [];
+for (var x = 0; x < renderDistance; x++) {
+  for (var z = 0; z < renderDistance; z++) {
+    chunkMap.push({
+      x: x,
+      z: z,
+    });
+  }
+}
+
+function identifyChunk(x, z) {
+  var lowestX = lowestXBlock();
+  var lowestZ = lowestZBlock();
+  var difX = x - lowestX;
+  var difZ = z - lowestZ;
+  var divX = Math.floor(difX / (chunkSize * 5));
+  var divZ = Math.floor(difZ / (chunkSize * 5));
+  var index = undefined;
+  for (var i = 0; i < chunkMap.length; i++) {
+    if (chunkMap[i].x === divX && chunkMap[i].z === divZ) {
+      index = i;
+      break;
+    }
+  }
+  return index;
+}
 
 //EventListener
 document.addEventListener("keydown", function (e) {
   keys.push(e.key);
   if (e.key == " ") {
-    ySpeed = -1.2;
+    ySpeed = -0.9;
     // canJump = false;
+  }
+  if (e.key == controlOptions.placeBlock) {
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    pointer.x = 0.5 * 2 - 1;
+    pointer.z = -1 * 0.5 * 2 + 1;
+    raycaster.setFromCamera(pointer, camera);
+    var intersection = raycaster.intersectObject(instancedChunk);
+
+    if (intersection[0] != undefined && intersection[0].distance < 40) {
+      var materialIndex = intersection[0].face.materialIndex;
+      var position = intersection[0].point;
+      var x = 0;
+      var y = 0;
+      var z = 0;
+      const inc = 2.5;
+      switch (materialIndex) {
+        case 0: // right
+          x = position.x + inc;
+          y = Math.round(position.y / 5) * 5;
+          z = Math.round(position.z / 5) * 5;
+          break;
+        case 1: //left
+          x = position.x - inc;
+          y = Math.round(position.y / 5) * 5;
+          z = Math.round(position.z / 5) * 5;
+          break;
+        case 2: //top
+          x = Math.round(position.x / 5) * 5;
+          y = position.y + inc;
+          z = Math.round(position.z / 5) * 5;
+          break;
+        case 3: //bottom
+          x = Math.round(position.x / 5) * 5;
+          y = position.y - inc;
+          z = Math.round(position.z / 5) * 5;
+          break;
+        case 4: //front
+          x = Math.round(position.x / 5) * 5;
+          y = Math.round(position.y / 5) * 5;
+          z = position.z + inc;
+          break;
+        case 5: //back
+          x = Math.round(position.x / 5) * 5;
+          y = Math.round(position.y / 5) * 5;
+          z = position.z - inc;
+          break;
+      }
+      chunks[identifyChunk(x, z)].push(new Block(x, y, z));
+      placedBlock.push({ x: x, y: y, z: z });
+      scene.remove(instancedChunk);
+      instancedChunk = new THREE.InstancedMesh(
+        blockBox,
+        materialArray,
+        renderDistance * renderDistance * chunkSize * chunkSize +
+          placedBlock.length
+      );
+      var count = 0;
+      for (var i = 0; i < chunks.length; i++) {
+        for (var j = 0; j < chunks[i].length; j++) {
+          let matrix = new THREE.Matrix4().makeTranslation(
+            chunks[i][j].x,
+            chunks[i][j].y,
+            chunks[i][j].z
+          );
+          instancedChunk.setMatrixAt(count, matrix);
+          count++;
+        }
+        scene.add(instancedChunk);
+      }
+    }
   }
 });
 document.addEventListener("keyup", function (e) {
@@ -390,12 +496,12 @@ document.addEventListener("keyup", function (e) {
 /************************************
  Update function (gravity, collisions, Infinite world generation)
  ***********************************/
-var movingSpeed = 0.5;
+var movingSpeed = 0.7;
 var ySpeed = 0;
-var acc = 0.08;
+var acc = 0.065;
 const update = () => {
   /************Movements************/
-  if (keys.includes("w")) {
+  if (keys.includes(controlOptions.forward)) {
     controls.moveForward(movingSpeed);
     for (i = 0; i < chunks.length; i++) {
       for (j = 0; j < chunks[i].length; j++) {
@@ -412,7 +518,7 @@ const update = () => {
       }
     }
   }
-  if (keys.includes("a")) {
+  if (keys.includes(controlOptions.left)) {
     controls.moveRight(-1 * movingSpeed);
     for (i = 0; i < chunks.length; i++) {
       for (j = 0; j < chunks[i].length; j++) {
@@ -429,7 +535,7 @@ const update = () => {
       }
     }
   }
-  if (keys.includes("s")) {
+  if (keys.includes(controlOptions.backward)) {
     controls.moveForward(-1 * movingSpeed);
     for (i = 0; i < chunks.length; i++) {
       for (j = 0; j < chunks[i].length; j++) {
@@ -446,7 +552,7 @@ const update = () => {
       }
     }
   }
-  if (keys.includes("d")) {
+  if (keys.includes(controlOptions.right)) {
     controls.moveRight(movingSpeed);
     for (i = 0; i < chunks.length; i++) {
       for (j = 0; j < chunks[i].length; j++) {
@@ -522,6 +628,13 @@ const update = () => {
           zoff = (inc * z) / 5;
           var v = Math.round((simplex.noise2D(xoff, zoff) * amplitude) / 5) * 5;
           chunk.push(new Block(x, v, z));
+          for (var b = 0; b < placedBlock.length; b++) {
+            if (placedBlock[b].x == x && placedBlock[b].z == z) {
+              chunk.push(
+                new Block(placedBlock[b].x, placedBlock[b].y, placedBlock[b].z)
+              );
+            }
+          }
         }
       }
       newChunks.splice(i * renderDistance, 0, chunk);
@@ -531,7 +644,8 @@ const update = () => {
     instancedChunk = new THREE.InstancedMesh(
       blockBox,
       materialArray,
-      renderDistance * renderDistance * chunkSize * chunkSize
+      renderDistance * renderDistance * chunkSize * chunkSize +
+        placedBlock.length
     );
     var count = 0;
     for (var i = 0; i < chunks.length; i++) {
@@ -593,6 +707,13 @@ const update = () => {
           zoff = (inc * z) / 5;
           var v = Math.round((simplex.noise2D(xoff, zoff) * amplitude) / 5) * 5;
           chunk.push(new Block(x, v, z));
+          for (var b = 0; b < placedBlock.length; b++) {
+            if (placedBlock[b].x == x && placedBlock[b].z == z) {
+              chunk.push(
+                new Block(placedBlock[b].x, placedBlock[b].y, placedBlock[b].z)
+              );
+            }
+          }
         }
       }
       newChunks.splice((i + 1) * renderDistance - 1, 0, chunk);
@@ -602,7 +723,8 @@ const update = () => {
     instancedChunk = new THREE.InstancedMesh(
       blockBox,
       materialArray,
-      renderDistance * renderDistance * chunkSize * chunkSize
+      renderDistance * renderDistance * chunkSize * chunkSize +
+        placedBlock.length
     );
     var count = 0;
     for (var i = 0; i < chunks.length; i++) {
@@ -656,6 +778,13 @@ const update = () => {
           zoff = (inc * z) / 5;
           var v = Math.round((simplex.noise2D(xoff, zoff) * amplitude) / 5) * 5;
           chunk.push(new Block(x, v, z));
+          for (var b = 0; b < placedBlock.length; b++) {
+            if (placedBlock[b].x == x && placedBlock[b].z == z) {
+              chunk.push(
+                new Block(placedBlock[b].x, placedBlock[b].y, placedBlock[b].z)
+              );
+            }
+          }
         }
       }
       newChunks.splice(chunks.length - (renderDistance - i), 0, chunk);
@@ -665,7 +794,8 @@ const update = () => {
     instancedChunk = new THREE.InstancedMesh(
       blockBox,
       materialArray,
-      renderDistance * renderDistance * chunkSize * chunkSize
+      renderDistance * renderDistance * chunkSize * chunkSize +
+        placedBlock.length
     );
     var count = 0;
     for (var i = 0; i < chunks.length; i++) {
@@ -715,6 +845,13 @@ const update = () => {
           zoff = (inc * z) / 5;
           var v = Math.round((simplex.noise2D(xoff, zoff) * amplitude) / 5) * 5;
           chunk.push(new Block(x, v, z));
+          for (var b = 0; b < placedBlock.length; b++) {
+            if (placedBlock[b].x == x && placedBlock[b].z == z) {
+              chunk.push(
+                new Block(placedBlock[b].x, placedBlock[b].y, placedBlock[b].z)
+              );
+            }
+          }
         }
       }
       newChunks.splice(i, 0, chunk);
@@ -724,7 +861,8 @@ const update = () => {
     instancedChunk = new THREE.InstancedMesh(
       blockBox,
       materialArray,
-      renderDistance * renderDistance * chunkSize * chunkSize
+      renderDistance * renderDistance * chunkSize * chunkSize +
+        placedBlock.length
     );
     var count = 0;
     for (var i = 0; i < chunks.length; i++) {
@@ -893,6 +1031,7 @@ const GameLoop = () => {
   requestAnimationFrame(GameLoop);
   update();
   render();
+  // console.log(chunks[identifyChunk(x, z)]);
 };
 
 GameLoop();
