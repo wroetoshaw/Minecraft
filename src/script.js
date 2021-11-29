@@ -13,13 +13,13 @@ import { PointerLockControls } from "three/examples/jsm/controls/PointerLockCont
 // stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
 // document.body.appendChild(stats.dom);
 
-function animate() {
-  stats.begin();
+// function animate() {
+//   stats.begin();
 
-  stats.end();
-  requestAnimationFrame(animate);
-}
-requestAnimationFrame(animate);
+//   stats.end();
+//   requestAnimationFrame(animate);
+// }
+// requestAnimationFrame(animate);
 
 /************************************
  perlin noise
