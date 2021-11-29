@@ -2,7 +2,9 @@
  Minecraft on web
 ## Live
 ```sh
-[www.buildcraft.netlify.app](https://buildcraft.netlify.app/)```
+https://buildcraft.netlify.app/
+```
+[www.buildcraft.netlify.app](https://buildcraft.netlify.app/)
 
 ## Setup
 Download [Node.js](https://nodejs.org/en/download/).
